@@ -66,6 +66,7 @@ export const generateCommitMessageByDiff = async (
       useFileDiffs = tokenCount(diff) >= MAX_REQUEST_TOKENS
     }
 
+    const engine = getEngine();
     if (useFileDiffs) {
       const commitMessagePromises = await getCommitMsgsPromisesFromFileDiffs(
         diff,
@@ -78,8 +79,14 @@ export const generateCommitMessageByDiff = async (
         commitMessages.push(await promise);
         await delay(2000);
       }
+      const compoundMessage = commitMessages.join('\n\n');
 
-      return commitMessages.join('\n\n');
+      const commitMessage = await engine.generateCommitMessage([{
+        role: ChatCompletionRequestMessageRoleEnum.User,
+        content: `
+Summarize the git commits below into a single line in the same format.
+${compoundMessage}`}]);
+      return commitMessage || ""
     }
 
     const messages = await generateCommitMessageChatCompletionPrompt(
@@ -87,7 +94,6 @@ export const generateCommitMessageByDiff = async (
       fullGitMojiSpec
     );
 
-    const engine = getEngine();
     const commitMessage = await engine.generateCommitMessage(messages);
 
     if (!commitMessage)
